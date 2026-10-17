@@ -105,21 +105,6 @@ private object PropertyStore {
     }
 }
 
-data class DavResponse(
-    val requestStatus: Int,
-    val description: String,
-    val mimeType: String,
-    val txt: String
-)
-
-enum class CancelState {
-    /** Server is asking: should this transfer stop? Return true to cancel. */
-    CHECK,
-
-    /** Server is telling: the transfer has stopped. Return value is ignored. */
-    CANCELLED
-}
-
 // ─────────────────────────────────────────────────────────────
 //  Digest Auth Manager (embedded)
 // ─────────────────────────────────────────────────────────────
@@ -396,46 +381,60 @@ abstract class FastHTTPD(
     }
 }
 
-interface WebDANConfig {
-
-    // ── Authentication ───────────────────────────────────────
-    fun authSwitch(): Boolean
-    fun authUsername(): String
-    fun authPassword(): String
-    fun authToken(): String
-
-    // ── Server ───────────────────────────────────────────────
-    fun getObjects(uri: String): Any?
-    fun getIpAddress(): String?
-    fun getPort(): Int? = null
-    fun getDirectoryGETResponse(uncPath: String): DavResponse? = null
-
-    // ── Transfer ─────────────────────────────────────────────
-    fun onTransferProgress(
-        fileName: String,
-        currentBytes: Long,
-        totalBytes: Long,
-        isReceiving: Boolean
-    ) {
-    }
-
-    fun onTransferComplete(fileName: String) {}
-    fun onTransferCancel(fileName: String, state: CancelState): Boolean = false
-    fun onTransferError(fileName: String, message: String) {}
-    fun onTransferBlocked(fileName: String) {}
-}
-
 // ─────────────────────────────────────────────────────────────
 //  WebDAV Server
 // ─────────────────────────────────────────────────────────────
 @Suppress("SpellCheckingInspection")
-class WebDAN private constructor(
+class WebDAVServer private constructor(
     val port: Int,
     private val context: Context,
-    private val config: WebDANConfig,
+    private val config: Config,
     val ip: String = config.getIpAddress() ?: "0.0.0.0"
 ) : FastHTTPD(ip, port) {
 
+    data class DavResponse(
+        val requestStatus: Int,
+        val description: String,
+        val mimeType: String,
+        val txt: String
+    )
+
+    enum class CancelState {
+        /** Server is asking: should this transfer stop? Return true to cancel. */
+        CHECK,
+
+        /** Server is telling: the transfer has stopped. Return value is ignored. */
+        CANCELLED
+    }
+
+    interface Config {
+
+        // ── Authentication ───────────────────────────────────────
+        fun authSwitch(): Boolean
+        fun authUsername(): String
+        fun authPassword(): String
+        fun authToken(): String
+
+        // ── Server ───────────────────────────────────────────────
+        fun getObjects(uri: String): Any?
+        fun getIpAddress(): String?
+        fun getPort(): Int? = null
+        fun getDirectoryGETResponse(uncPath: String): DavResponse? = null
+
+        // ── Transfer ─────────────────────────────────────────────
+        fun onTransferProgress(
+            fileName: String,
+            currentBytes: Long,
+            totalBytes: Long,
+            isReceiving: Boolean
+        ) {
+        }
+
+        fun onTransferComplete(fileName: String) {}
+        fun onTransferCancel(fileName: String, state: CancelState): Boolean = false
+        fun onTransferError(fileName: String, message: String) {}
+        fun onTransferBlocked(fileName: String) {}
+    }
     var scheme: String = "http"
         private set
 
@@ -457,15 +456,15 @@ class WebDAN private constructor(
         // ── Lifecycle ────────────────────────────────────────────
         fun startServer(
             context: Context,
-            config: WebDANConfig,
+            config: Config,
             secure: Boolean = false,
             onStarted: ((String) -> Unit)? = null
-        ): WebDAN? {
+        ): WebDAVServer? {
             PropertyStore.cleanupStaleEntries(context)
 
             var candidatePort = config.getPort() ?: 8080
             repeat(50) {
-                val server = WebDAN(candidatePort, context, config)
+                val server = WebDAVServer(candidatePort, context, config)
                 try {
                     server.start(SOCKET_READ_TIMEOUT, false)
                     Log.d(server.tag, "Server started on port $candidatePort")

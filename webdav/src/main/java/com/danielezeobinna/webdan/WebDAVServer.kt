@@ -105,6 +105,21 @@ private object PropertyStore {
     }
 }
 
+data class DavResponse(
+    val requestStatus: Int,
+    val description: String,
+    val mimeType: String,
+    val txt: String
+)
+
+enum class CancelState {
+    /** Server is asking: should this transfer stop? Return true to cancel. */
+    CHECK,
+
+    /** Server is telling: the transfer has stopped. Return value is ignored. */
+    CANCELLED
+}
+
 // ─────────────────────────────────────────────────────────────
 //  Digest Auth Manager (embedded)
 // ─────────────────────────────────────────────────────────────
@@ -381,6 +396,35 @@ abstract class FastHTTPD(
     }
 }
 
+interface Config {
+
+    // ── Authentication ───────────────────────────────────────
+    fun authSwitch(): Boolean
+    fun authUsername(): String
+    fun authPassword(): String
+    fun authToken(): String
+
+    // ── Server ───────────────────────────────────────────────
+    fun getObjects(uri: String): Any?
+    fun getIpAddress(): String?
+    fun getPort(): Int? = null
+    fun getDirectoryGETResponse(uncPath: String): DavResponse? = null
+
+    // ── Transfer ─────────────────────────────────────────────
+    fun onTransferProgress(
+        fileName: String,
+        currentBytes: Long,
+        totalBytes: Long,
+        isReceiving: Boolean
+    ) {
+    }
+
+    fun onTransferComplete(fileName: String) {}
+    fun onTransferCancel(fileName: String, state: CancelState): Boolean = false
+    fun onTransferError(fileName: String, message: String) {}
+    fun onTransferBlocked(fileName: String) {}
+}
+
 // ─────────────────────────────────────────────────────────────
 //  WebDAV Server
 // ─────────────────────────────────────────────────────────────
@@ -392,49 +436,6 @@ class WebDAVServer private constructor(
     val ip: String = config.getIpAddress() ?: "0.0.0.0"
 ) : FastHTTPD(ip, port) {
 
-    data class DavResponse(
-        val requestStatus: Int,
-        val description: String,
-        val mimeType: String,
-        val txt: String
-    )
-
-    enum class CancelState {
-        /** Server is asking: should this transfer stop? Return true to cancel. */
-        CHECK,
-
-        /** Server is telling: the transfer has stopped. Return value is ignored. */
-        CANCELLED
-    }
-
-    interface Config {
-
-        // ── Authentication ───────────────────────────────────────
-        fun authSwitch(): Boolean
-        fun authUsername(): String
-        fun authPassword(): String
-        fun authToken(): String
-
-        // ── Server ───────────────────────────────────────────────
-        fun getObjects(uri: String): Any?
-        fun getIpAddress(): String?
-        fun getPort(): Int? = null
-        fun getDirectoryGETResponse(uncPath: String): DavResponse? = null
-
-        // ── Transfer ─────────────────────────────────────────────
-        fun onTransferProgress(
-            fileName: String,
-            currentBytes: Long,
-            totalBytes: Long,
-            isReceiving: Boolean
-        ) {
-        }
-
-        fun onTransferComplete(fileName: String) {}
-        fun onTransferCancel(fileName: String, state: CancelState): Boolean = false
-        fun onTransferError(fileName: String, message: String) {}
-        fun onTransferBlocked(fileName: String) {}
-    }
     var scheme: String = "http"
         private set
 

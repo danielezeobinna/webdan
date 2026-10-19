@@ -1,24 +1,16 @@
-package com.danielezeobinna.webdan
+package io.github.webdanlib.webdav
 
 import android.content.Context
 import android.util.Log
-import java.io.File
-import java.io.FileInputStream
-import java.io.IOException
+import androidx.core.content.edit
+import fi.iki.elonen.NanoHTTPD
+import java.io.*
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.min
-import androidx.core.content.edit
-import fi.iki.elonen.NanoHTTPD
-import java.io.BufferedInputStream
-import java.io.InputStream
+import java.util.concurrent.*
 import java.net.Socket
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.SynchronousQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
+import kotlin.math.min
 
 private object PersistenceGuard {
     private const val PREFS_NAME = "webdav_safety_prefs"
@@ -429,7 +421,7 @@ interface Config {
 //  WebDAV Server
 // ─────────────────────────────────────────────────────────────
 @Suppress("SpellCheckingInspection")
-class WebDAVServer private constructor(
+class Server private constructor(
     val port: Int,
     private val context: Context,
     private val config: Config,
@@ -460,12 +452,12 @@ class WebDAVServer private constructor(
             config: Config,
             secure: Boolean = false,
             onStarted: ((String) -> Unit)? = null
-        ): WebDAVServer? {
+        ): Server? {
             PropertyStore.cleanupStaleEntries(context)
 
             var candidatePort = config.getPort() ?: 8080
             repeat(50) {
-                val server = WebDAVServer(candidatePort, context, config)
+                val server = Server(candidatePort, context, config)
                 try {
                     server.start(SOCKET_READ_TIMEOUT, false)
                     Log.d(server.tag, "Server started on port $candidatePort")

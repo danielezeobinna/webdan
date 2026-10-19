@@ -1,4 +1,4 @@
-package com.danielezeobinna.webdan
+package io.github.webdanlib
 
 import org.junit.Test
 

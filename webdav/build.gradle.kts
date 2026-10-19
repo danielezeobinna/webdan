@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.danielezeobinna.webdav"
+    namespace = "io.github.webdanlib.webdav"
     //noinspection GradleDependency
     compileSdk = 35
     defaultConfig { minSdk = 24 }
@@ -39,7 +39,7 @@ afterEvaluate {
         publications {
             register<MavenPublication>("release") {
                 from(components["release"])
-                groupId = "com.github.danielezeobinna"
+                groupId = "io.github.webdanlib"
                 artifactId = "webdav"
                 version = "0.9.0"
             }
